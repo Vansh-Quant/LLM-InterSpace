@@ -1,182 +1,177 @@
-# InterSpace Architecture
+# LLM InterSpace — Final Architecture
 
-## 1. Purpose
+## 1. Vision
 
-InterSpace is a coordination and persistent experience layer for independent local LLM agents.
+> **The models stay independent. The experience becomes collective.**
 
-The architecture separates:
+InterSpace is a local-first, model-agnostic shared memory and communication layer for independent LLM agents.
 
-1. Foundation-model inference
-2. Agent specialization
-3. Shared memory
-4. Agent communication
-5. Verification
-6. Audit/history
-7. Future training
+Each agent keeps its own local model and private reasoning. InterSpace provides the shared layer through which verified contracts, facts, messages, test results, experiences, and audit history become collective.
 
-This separation keeps the system model-agnostic.
+## 2. Final System Architecture
 
-## 2. High-Level Architecture
+    Laptop 1                 Laptop 2                 Laptop 3
+    Backend Agent             Frontend Agent            QA Agent
+    Local Model A             Local Model B             Local Model C
+    Private Memory            Private Memory             Private Memory
+          \                       |                       /
+           \                      |                      /
+            +---------------------+---------------------+
+                                  |
+                         Shared Network / WiFi
+                                  |
+                         +--------v---------+
+                         |  FastAPI Gateway |
+                         +--------+---------+
+                                  |
+                  +---------------+---------------+
+                  |               |               |
+              SQLite       Precedence Engine  Verification
+                  |
+        +---------+---------+
+        |                   |
+   Shared InterSpace     Audit Events
+        |
+   Project State
+   Knowledge
+   Experiences
+   Communication Log
+   History
+        |
+     Dashboard
 
-    LOCAL MODEL RUNTIME
+### Trust boundary
+
+Raw agent reasoning, drafts, failed attempts, and intermediate steps remain private to the agent.
+
+Only settled, checkable outputs cross into the shared store:
+
+- contract versions
+- verified facts
+- structured messages
+- test results
+- experience records
+- audit events
+
+## 3. Core Components
+
+| Component | Runs where | Purpose |
+|---|---|---|
+| Backend Agent | Local machine | Owns backend/API changes |
+| Frontend Agent | Local machine | Owns frontend consumers |
+| QA Agent | Local machine | Runs tests and verifies fixes |
+| FastAPI Gateway | Central host | Network entry point |
+| SQLite Store | Central host | Shared InterSpace state |
+| Precedence Engine | Central host | Resolves conflicting information |
+| Verification Engine | Central host | Promotes evidence-backed results |
+| Dashboard | Central host / browser | Live system visibility |
+
+## 4. Core Demo Loop
+
+    Backend changes API
             |
-      Agent Gateway
+    New contract version
             |
-    +-------+-------+
-    |       |       |
- Backend Frontend  QA
- Agent    Agent   Agent
-    |       |       |
-    +-------+-------+
+    Deterministic contract diff
             |
-       INTERSPACE CORE
+    Affected consumer identified
             |
-    +-------+-------+
-    |       |       |
- Memory  Message   Audit
- Store    Bus      Log
-    |       |       |
-    +-------+-------+
+    Frontend Agent notified
             |
-     Retrieval + Precedence
+    Relevant Experience retrieved
             |
-       Verification
+    Frontend proposes patch
             |
-     Experience Store
-            |
-      Training Export
+    QA executes sandboxed tests
+          /   \
+       PASS   FAIL
+        |       |
+     VERIFIED  retry
+        |
+    New Experience
+        |
+    Audit updated
+        |
+    Future agent reuses experience
 
-## 3. Agent Gateway
+This is the primary golden path for the hackathon. Additional features must not destabilize it.
 
-The gateway provides a consistent interface between agents and local models.
+## 5. Agent Model
 
-Responsibilities:
-
-- select configured local model
-- build agent context
-- retrieve relevant InterSpace memories
-- expose permitted tools
-- enforce structured output
-- record invocation metadata
-- forward messages
-- submit candidate knowledge for verification
-
-Agents should not directly manipulate the database.
-
-## 4. Agent Roles
+Agents are specialized and independent.
 
 ### Backend Agent
 
-Owns backend implementation and API contracts.
-
-Typical operations:
-
-- modify backend code
-- update API schema
-- explain contract changes
-- publish contract versions
-- respond to consumer questions
+- modifies backend code
+- owns API contracts
+- publishes contract versions
+- answers contract questions
 
 ### Frontend Agent
 
-Owns frontend consumers.
-
-Typical operations:
-
-- inspect current contracts
-- identify impacted consumers
-- retrieve previous solutions
-- patch integration code
-- report unresolved dependencies
+- consumes API contracts
+- identifies frontend impact
+- retrieves relevant experiences
+- proposes/applies patches
 
 ### QA Agent
 
-Acts as an independent verification layer.
+- runs tests
+- validates proposed fixes
+- produces evidence
+- supports promotion to VERIFIED
 
-Typical operations:
+The architecture permits additional roles later.
 
-- run tests
-- inspect failures
-- validate proposed fixes
-- produce evidence
-- promote experiences to VERIFIED when criteria are met
+## 6. Private vs Shared Memory
 
-Additional agents can be added later.
+### Private memory
 
-## 5. InterSpace Core
+Local only:
 
-The core provides shared state without merging agent identities.
+- raw reasoning
+- drafts
+- failed attempts
+- intermediate steps
+- temporary context
 
-### Project State
+### Shared InterSpace
 
-Current files, APIs, contracts, dependencies, configuration and test state.
+Networked:
 
-### Knowledge
+- project state
+- verified knowledge
+- contract versions
+- experiences
+- structured communication
+- test results
+- audit history
 
-Stable project-specific facts.
+An agent's private reasoning is never copied into the shared store as raw chain-of-thought.
 
-### Experiences
+## 7. Contract Drift
 
-Historical problem-solving records.
+For the MVP, contract change detection is deterministic.
 
-### Skills
+    Contract V1 + Contract V2
+              |
+        Schema / field diff
+              |
+      Dependency lookup
+              |
+       Impact identified
+              |
+       Agent notification
 
-Reusable procedures.
+Example:
 
-### Failures
+    user_id -> userId
 
-Known unsuccessful approaches.
+The LLM reasons about impact and remediation; deterministic tooling establishes what actually changed.
 
-### Verified Solutions
+## 8. Communication
 
-Solutions supported by evidence.
-
-### Communication
-
-Structured agent-to-agent messages.
-
-### History
-
-Versioned changes to shared memory.
-
-## 6. Retrieval Flow
-
-    Task
-      |
-    Identify entities / dependencies
-      |
-    Retrieve current project state
-      |
-    Retrieve verified knowledge
-      |
-    Retrieve relevant experiences
-      |
-    Rank by relevance + trust + freshness
-      |
-    Apply precedence
-      |
-    Build agent context
-      |
-    Agent acts
-
-Retrieval should prefer information that is relevant, project-specific, verified, evidence-backed and appropriately fresh.
-
-## 7. Precedence Engine
-
-Default precedence:
-
-    1. Current Verified Project State
-    2. Project-specific Verified Knowledge
-    3. Verified Historical Experiences
-    4. Shared Agent Knowledge
-    5. External Reference Knowledge
-    6. Foundation-model Knowledge
-
-The engine resolves conflicts without treating stale history as current truth.
-
-## 8. Communication Protocol
-
-Agents communicate through structured messages.
+Agent communication is structured and auditable.
 
 Example:
 
@@ -192,97 +187,206 @@ Example:
       "requires_action": true
     }
 
-Message types may include:
+Every important message is logged.
 
-- TASK_CREATED
-- TASK_COMPLETED
-- CONTRACT_CHANGED
-- DEPENDENCY_IMPACT
-- QUESTION
-- PROPOSAL
-- PATCH_PROPOSED
-- TEST_REQUEST
-- TEST_RESULT
-- EXPERIENCE_CREATED
-- VERIFICATION_RESULT
-- CONFLICT_DETECTED
+## 9. Memory Lifecycle
 
-## 9. Contract Drift Detection
+    UNVERIFIED
+        |
+     OBSERVED
+        |
+      TESTED
+        |
+     VERIFIED
+        |
+      REUSED
+        |
+   RECONFIRMED
 
-For the MVP, deterministic comparison is preferred over asking an LLM to decide whether schemas differ.
+Contradictions:
 
-    Contract V1 + Contract V2
-              |
-        Deterministic diff
-              |
-      Changed fields/types
-              |
-      Dependency lookup
-              |
-        Potential impact
-              |
-        Agent notification
+    TESTED -> REVIEW -> REVISED
+                    -> INVALIDATED
 
-The LLM reasons about impact and remediation; deterministic tooling establishes the change.
+Not every agent statement becomes trusted knowledge.
 
-## 10. Verification
+## 10. Experience Model
 
-Candidate knowledge should not automatically become trusted memory.
+An Experience captures:
 
-Verification may use:
+    Problem
+       +
+    Context
+       +
+    Attempts / failures
+       +
+    Solution
+       +
+    Evidence
+       +
+    Verification
+       +
+    Provenance
+       +
+    Reusability
+
+Example:
+
+    Experience #048
+    Problem: backend changed user_id -> userId
+    Resolution: updated frontend consumer
+    Evidence: integration tests
+    Agents: Backend + Frontend + QA
+    Status: VERIFIED
+    Reusable: YES
+
+## 11. Retrieval and Precedence
+
+When an agent needs information:
+
+    Current verified project state
+              >
+    Project-specific verified knowledge
+              >
+    Verified historical experiences
+              >
+    Shared agent knowledge
+              >
+    External reference knowledge
+              >
+    Foundation-model knowledge
+
+This prevents stale historical or generic model knowledge from overriding current project truth.
+
+## 12. Verification
+
+Verification can use:
 
 - unit tests
 - integration tests
 - schema validation
 - static checks
 - reproducible execution
-- explicit agent review
+- explicit review
 
-Evidence-backed results can be promoted to reusable knowledge.
+For the demo, patches execute in a sandboxed/allowlisted environment.
 
-## 11. Audit Architecture
+Only evidence-backed results should become reusable VERIFIED experiences.
 
-Audit events should be structured and append-oriented.
+## 13. Audit Trail
 
-Example:
+The audit log records:
 
-    {
-      "event_id": "evt-882",
-      "timestamp": "2026-09-18T10:02:20Z",
-      "type": "CONTRACT_DRIFT_DETECTED",
-      "actor": "interspace-auditor",
-      "task_id": "task-21",
-      "payload": {
-        "from": "v1",
-        "to": "v2",
-        "affected_agent": "frontend-agent"
-      }
-    }
+- contract changes
+- notifications
+- agent messages
+- experience retrieval
+- patches
+- test requests
+- test results
+- verification changes
+- experience creation
 
-The audit trail should make the full coordination chain reconstructable.
+The dashboard exposes this timeline live.
 
-## 12. Safety Boundary
+## 14. Dashboard
 
-Agents should operate through controlled tools.
+Minimum dashboard panels:
 
-Recommended boundaries:
+1. Agent status
+2. Contract version history
+3. Agent-to-agent messages
+4. Experience records
+5. Verification states
+6. Audit timeline
+7. Test results
 
-- allowlisted tools
-- sandboxed execution
-- repository-scoped file access
-- command validation
-- test isolation
-- structured tool calls
-- confirmation for destructive operations when necessary
+The dashboard is for proving the system visually, not for hiding system behavior.
 
-## 13. Future Distributed Architecture
+## 15. Technology Stack
 
-The hackathon version can run on one machine.
+| Layer | Choice |
+|---|---|
+| Language | Python |
+| Local inference | Ollama |
+| Model strategy | Different local model per agent where useful |
+| Networking/API | FastAPI |
+| Shared storage | SQLite |
+| Private storage | Local SQLite/JSON |
+| Retrieval | Local embeddings/vector store |
+| Dashboard | Streamlit initially; React/Next.js only if time permits |
+| Execution | Sandboxed subprocess |
+| Testing | pytest |
+| Events | Structured JSON |
+| History | Git-style memory/event history |
 
-A later architecture can allow:
+## 16. Repository Mapping
 
-    Agent A ─┐
-    Agent B ─┼── InterSpace Protocol ── Shared / Replicated Memory
-    Agent C ─┘
+    LLM-InterSpace/
+    ├── interspace/
+    │   ├── core/           # contracts, versioning, precedence
+    │   ├── agents/         # backend, frontend, QA
+    │   ├── communication/  # messages and notifications
+    │   ├── audit/          # events and memory state machine
+    │   ├── retrieval/      # experience matching/retrieval
+    │   └── training/       # future roadmap only
+    ├── storage/            # shared/private SQLite
+    ├── demo/               # deterministic demo scenario
+    ├── dashboard/          # live dashboard
+    ├── tests/              # pytest suite
+    └── docs/               # architecture and design
 
-Agents can eventually run on different machines or use different local runtimes without requiring the same foundation model.
+## 17. Scope Rule
+
+### Must work
+
+- local model connection
+- three specialized agents
+- shared InterSpace store
+- contract versioning/diff
+- affected-agent notification
+- structured communication
+- experience creation/retrieval
+- QA verification
+- audit trail
+- live dashboard
+- complete end-to-end demo
+
+### Only if stable
+
+- richer semantic retrieval
+- multiple model providers/runtimes
+- knowledge graph
+- dataset export
+- additional agent roles
+
+### Future only
+
+- LoRA/fine-tuning
+- distributed InterSpace protocol
+- cross-project collective memory
+- large-scale deployment
+
+## 18. Engineering Rule
+
+The **golden path must be deterministic wherever possible**.
+
+Use deterministic code for:
+
+- contract diffs
+- state transitions
+- persistence
+- permissions
+- audit events
+- test execution
+- verification status
+
+Use LLMs for:
+
+- reasoning
+- impact analysis
+- natural-language interpretation
+- proposing fixes
+- agent-specific problem solving
+
+This keeps the system demonstrable, testable, and trustworthy.
