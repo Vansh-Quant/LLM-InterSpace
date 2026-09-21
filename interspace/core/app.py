@@ -8,15 +8,28 @@ from interspace.agents.models import AgentHeartbeat, AgentRegistration, AgentRes
 from interspace.communication.models import EventCreate, EventResponse
 from interspace.core.database import get_connection, initialize_database
 
-app = FastAPI(title="LLM InterSpace Gateway", version="0.1.0")
+app = FastAPI(title="LLM InterSpace Gateway", version="0.2.0")
+
 
 @app.on_event("startup")
 def startup() -> None:
     initialize_database()
 
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "service": "interspace-gateway"}
+
+
+@app.get("/network/ping")
+def network_ping() -> dict:
+    return {
+        "status": "ok",
+        "service": "interspace-gateway",
+        "gateway_version": app.version,
+        "timestamp": utc_now(),
+    }
+
 
 @app.post("/agents/register", response_model=AgentResponse)
 def register_agent(agent: AgentRegistration) -> AgentResponse:
@@ -46,6 +59,7 @@ def register_agent(agent: AgentRegistration) -> AgentResponse:
         status=row["status"], last_heartbeat=row["last_heartbeat"]
     )
 
+
 @app.post("/agents/{agent_id}/heartbeat", response_model=AgentResponse)
 def heartbeat(agent_id: str, heartbeat_data: AgentHeartbeat) -> AgentResponse:
     now = utc_now()
@@ -63,6 +77,7 @@ def heartbeat(agent_id: str, heartbeat_data: AgentHeartbeat) -> AgentResponse:
         status=row["status"], last_heartbeat=row["last_heartbeat"]
     )
 
+
 @app.get("/agents", response_model=list[AgentResponse])
 def list_agents() -> list[AgentResponse]:
     with get_connection() as conn:
@@ -75,6 +90,7 @@ def list_agents() -> list[AgentResponse]:
         )
         for row in rows
     ]
+
 
 @app.post("/events", response_model=EventResponse)
 def create_event(event: EventCreate) -> EventResponse:
@@ -97,6 +113,7 @@ def create_event(event: EventCreate) -> EventResponse:
         event_id=event_id, event_type=event.event_type,
         agent_id=event.agent_id, payload=event.payload, created_at=now
     )
+
 
 @app.get("/events", response_model=list[EventResponse])
 def list_events(limit: int = 100) -> list[EventResponse]:
