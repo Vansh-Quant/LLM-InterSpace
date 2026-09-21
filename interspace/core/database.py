@@ -45,10 +45,34 @@ CREATE TABLE IF NOT EXISTS contract_versions (
     FOREIGN KEY (created_by) REFERENCES agents(agent_id)
 );
 
+CREATE TABLE IF NOT EXISTS contract_subscriptions (
+    contract_id TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (contract_id, agent_id),
+    FOREIGN KEY (contract_id) REFERENCES contracts(contract_id),
+    FOREIGN KEY (agent_id) REFERENCES agents(agent_id)
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    notification_id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
+    notification_type TEXT NOT NULL,
+    contract_id TEXT NOT NULL,
+    from_version INTEGER NOT NULL,
+    to_version INTEGER NOT NULL,
+    payload_json TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'unread',
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (agent_id) REFERENCES agents(agent_id),
+    FOREIGN KEY (contract_id) REFERENCES contracts(contract_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_agents_status ON agents(status);
 CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at);
 CREATE INDEX IF NOT EXISTS idx_events_agent_id ON events(agent_id);
 CREATE INDEX IF NOT EXISTS idx_contract_versions_contract ON contract_versions(contract_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_agent_status ON notifications(agent_id, status);
 """
 
 def get_connection() -> sqlite3.Connection:
