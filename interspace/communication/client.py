@@ -3,6 +3,7 @@ from typing import Any
 import httpx
 
 from interspace.agents.models import AgentHeartbeat, AgentRegistration
+from interspace.communication.notifications import ContractSubscriptionCreate
 from interspace.core.contracts import ContractPublish
 
 
@@ -74,7 +75,38 @@ class InterSpaceClient:
             params={"from_version": from_version, "to_version": to_version},
         )
 
-    def _request(self, method: str, path: str, **kwargs: Any) -> dict[str, Any]:
+    def subscribe(self, contract_id: str, agent_id: str) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            "/contracts/subscribe",
+            json=ContractSubscriptionCreate(
+                contract_id=contract_id,
+                agent_id=agent_id,
+            ).model_dump(),
+        )
+
+    def notifications(
+        self,
+        agent_id: str,
+        unread_only: bool = False,
+    ) -> list[dict[str, Any]]:
+        return self._request(
+            "GET",
+            f"/agents/{agent_id}/notifications",
+            params={"unread_only": unread_only},
+        )
+
+    def acknowledge_notification(
+        self,
+        agent_id: str,
+        notification_id: str,
+    ) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            f"/agents/{agent_id}/notifications/{notification_id}/ack",
+        )
+
+    def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         try:
             response = httpx.request(
                 method,
