@@ -3,6 +3,7 @@ from typing import Any
 import httpx
 
 from interspace.agents.models import AgentHeartbeat, AgentRegistration
+from interspace.core.contracts import ContractPublish
 
 
 class InterSpaceConnectionError(RuntimeError):
@@ -44,6 +45,33 @@ class InterSpaceClient:
                 "agent_id": agent_id,
                 "payload": payload,
             },
+        )
+
+    def publish_contract(self, contract: ContractPublish) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            "/contracts/publish",
+            json=contract.model_dump(),
+        )
+
+    def get_contract(self, contract_id: str, version: int | None = None) -> dict[str, Any]:
+        path = (
+            f"/contracts/{contract_id}"
+            if version is None
+            else f"/contracts/{contract_id}/versions/{version}"
+        )
+        return self._request("GET", path)
+
+    def diff_contract(
+        self,
+        contract_id: str,
+        from_version: int,
+        to_version: int,
+    ) -> dict[str, Any]:
+        return self._request(
+            "GET",
+            f"/contracts/{contract_id}/diff",
+            params={"from_version": from_version, "to_version": to_version},
         )
 
     def _request(self, method: str, path: str, **kwargs: Any) -> dict[str, Any]:
