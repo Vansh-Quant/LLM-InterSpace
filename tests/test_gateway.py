@@ -1,15 +1,22 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from interspace.core.app import app
 
-client = TestClient(app)
 
-def test_health():
+@pytest.fixture
+def client():
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+def test_health(client):
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
 
-def test_register_list_and_heartbeat():
+
+def test_register_list_and_heartbeat(client):
     payload = {
         "agent_id": "backend-test",
         "name": "Backend Test Agent",
@@ -32,14 +39,16 @@ def test_register_list_and_heartbeat():
     assert response.status_code == 200
     assert response.json()["status"] == "busy"
 
-def test_unknown_agent_heartbeat():
+
+def test_unknown_agent_heartbeat(client):
     response = client.post(
         "/agents/missing/heartbeat",
         json={"status": "online"},
     )
     assert response.status_code == 404
 
-def test_event_creation_and_listing():
+
+def test_event_creation_and_listing(client):
     client.post(
         "/agents/register",
         json={
@@ -64,7 +73,8 @@ def test_event_creation_and_listing():
     assert response.status_code == 200
     assert any(event["event_id"] == event_id for event in response.json())
 
-def test_event_rejects_unknown_agent():
+
+def test_event_rejects_unknown_agent(client):
     response = client.post(
         "/events",
         json={
