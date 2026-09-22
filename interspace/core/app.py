@@ -1,6 +1,6 @@
 import json,uuid
 from datetime import datetime,timezone
-from fastapi import FastAPI,HTTPException,Query
+from fastapi import FastAPI,HTTPException,Query\nfrom fastapi.middleware.cors import CORSMiddleware
 from interspace.agents.models import AgentHeartbeat,AgentRegistration,AgentResponse,utc_now
 from interspace.communication.models import EventCreate,EventResponse
 from interspace.communication.notifications import ContractSubscriptionCreate,ContractSubscriptionResponse,NotificationResponse
@@ -17,7 +17,7 @@ from interspace.audit.models import AuditEventCreate,AuditEventResponse
 from interspace.audit.state import can_transition
 from interspace.retrieval.experiences import rank_experiences
 
-app=FastAPI(title="LLM InterSpace Gateway",version="0.5.0")
+app=FastAPI(title="LLM InterSpace Gateway",version="0.5.0")\napp.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 @app.on_event("startup")
 def startup(): initialize_database()
 def _agent(row): return AgentResponse(agent_id=row["agent_id"],name=row["name"],role=row["role"],model=row["model"],capabilities=json.loads(row["capabilities_json"]),status=row["status"],last_heartbeat=row["last_heartbeat"])
@@ -180,7 +180,7 @@ def qa_run(q:QARunCreate):
     except __import__("subprocess").TimeoutExpired as exc: result={"status":"failed","returncode":124,"stdout":exc.stdout or "","stderr":exc.stderr or "","timed_out":True}; timed=True
     now=utc_now(); qid=str(uuid.uuid4())
     with get_connection() as c:
-        c.execute("INSERT INTO qa_runs VALUES (?,?,?,?,?,?,?)",(qid,q.requested_by,result["status"],result["returncode"],result["stdout"],result["stderr"],1 if result.get("timed_out") else 0,now.isoformat())); _audit(c,"qa.completed",q.requested_by,"qa_run",qid,result)
+        c.execute("INSERT INTO qa_runs VALUES (?,?,?,?,?,?,?,?)",(qid,q.requested_by,result["status"],result["returncode"],result["stdout"],result["stderr"],1 if result.get("timed_out") else 0,now.isoformat())); _audit(c,"qa.completed",q.requested_by,"qa_run",qid,result)
         if result["status"]=="passed":
             c.execute("INSERT INTO events VALUES (?,?,?,?,?)",(str(uuid.uuid4()),"qa.passed",q.requested_by,json.dumps({"qa_run_id":qid}),now.isoformat()))
     return QARunResponse(qa_run_id=qid,requested_by=q.requested_by,status=result["status"],returncode=result["returncode"],stdout=result["stdout"],stderr=result["stderr"],timed_out=result.get("timed_out",False),created_at=now)
