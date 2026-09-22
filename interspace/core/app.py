@@ -211,9 +211,9 @@ def knowledge(k:KnowledgeCreate):
 @app.post("/precedence/resolve")
 def precedence_resolve(payload:dict):
     with get_connection() as c:
-        state=[dict(r) for r in c.execute("SELECT * FROM project_state ORDER BY updated_at DESC").fetchall()]
-        knowledge=[dict(r) for r in c.execute("SELECT * FROM knowledge WHERE status='VERIFIED' ORDER BY created_at DESC").fetchall()]
-        history=[dict(r) for r in c.execute("SELECT * FROM experiences WHERE status IN ('VERIFIED','RECONFIRMED') ORDER BY created_at DESC").fetchall()]
+        state=[{"key":r["key"],"value":json.loads(r["value_json"]),"updated_by":r["updated_by"],"updated_at":r["updated_at"]} for r in c.execute("SELECT * FROM project_state ORDER BY updated_at DESC").fetchall()]
+        knowledge=[{"key":r["key"],"value":json.loads(r["value_json"]),"scope":r["scope"],"created_by":r["created_by"],"status":r["status"],"created_at":r["created_at"]} for r in c.execute("SELECT * FROM knowledge WHERE status='VERIFIED' ORDER BY created_at DESC").fetchall()]
+        history=[{"experience_id":r["experience_id"],"problem":r["problem"],"action":r["action"],"result":r["result"],"verification":r["verification"],"created_by":r["created_by"],"status":r["status"],"created_at":r["created_at"]} for r in c.execute("SELECT * FROM experiences WHERE status IN ('VERIFIED','RECONFIRMED') ORDER BY created_at DESC").fetchall()]
     return resolve_precedence(state,knowledge,history,payload.get("shared_agent_knowledge",[]),payload.get("foundation_model"))
 
 @app.get("/audit",response_model=list[AuditEventResponse])
