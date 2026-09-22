@@ -144,7 +144,7 @@ def create_experience(e:ExperienceCreate):
         if not c.execute("SELECT 1 FROM agents WHERE agent_id=?",(e.created_by,)).fetchone(): raise HTTPException(404,"Agent not registered")
         c.execute("INSERT INTO experiences VALUES (?,?,?,?,?,?,?,?,?,?)",(eid,e.problem,e.action,e.result,e.verification,e.created_by,e.status,json.dumps(e.metadata),now.isoformat(),now.isoformat())); _audit(c,"experience.created",e.created_by,"experience",eid,{"status":e.status})
     return ExperienceResponse(experience_id=eid,**e.model_dump(),created_at=now,updated_at=now)
-@app.post("/experiences/search")
+@app.get("/experiences",response_model=list[ExperienceResponse])\ndef experiences(limit:int=100):\n    with get_connection() as c: rows=c.execute("SELECT * FROM experiences ORDER BY created_at DESC LIMIT ?",(max(1,min(limit,500)),)).fetchall()\n    return [ExperienceResponse(experience_id=r["experience_id"],problem=r["problem"],action=r["action"],result=r["result"],verification=r["verification"],created_by=r["created_by"],status=r["status"],metadata=json.loads(r["metadata_json"]),created_at=datetime.fromisoformat(r["created_at"]),updated_at=datetime.fromisoformat(r["updated_at"])) for r in rows]\n@app.post("/experiences/search")
 def search_experiences(s:ExperienceSearch):
     with get_connection() as c: rows=[dict(r) for r in c.execute("SELECT * FROM experiences WHERE status IN ('VERIFIED','RECONFIRMED') ORDER BY created_at DESC").fetchall()]
     for r in rows: r["metadata"]=json.loads(r.pop("metadata_json")); r["created_at"]=r["created_at"]
