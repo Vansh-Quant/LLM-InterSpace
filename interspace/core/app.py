@@ -172,6 +172,11 @@ def transition_verification(verification_id,transition:VerificationTransition):
         if not can_transition(r["state"],transition.target_state): raise HTTPException(409,f"Invalid transition {r['state']} -> {transition.target_state}")
         now=utc_now(); c.execute("UPDATE verifications SET state=?,updated_at=? WHERE verification_id=?",(transition.target_state,now.isoformat(),verification_id)); _audit(c,"verification.transition",transition.actor_id,"verification",verification_id,{"from":r["state"],"to":transition.target_state,"note":transition.note}); r=c.execute("SELECT * FROM verifications WHERE verification_id=?",(verification_id,)).fetchone()
     return VerificationResponse(verification_id=r["verification_id"],fact_type=r["fact_type"],fact_id=r["fact_id"],created_by=r["created_by"],metadata=json.loads(r["metadata_json"]),state=r["state"],created_at=datetime.fromisoformat(r["created_at"]),updated_at=now)
+@app.get("/qa/runs",response_model=list[QARunResponse])
+def qa_runs(limit:int=50):
+    with get_connection() as c: rows=c.execute("SELECT * FROM qa_runs ORDER BY created_at DESC LIMIT ?",(max(1,min(limit,200)),)).fetchall()
+    return [QARunResponse(qa_run_id=r["qa_run_id"],requested_by=r["requested_by"],status=r["status"],returncode=r["returncode"],stdout=r["stdout"],stderr=r["stderr"],timed_out=bool(r["timed_out"]),created_at=datetime.fromisoformat(r["created_at"])) for r in rows]
+
 @app.post("/qa/run",response_model=QARunResponse)
 def qa_run(q:QARunCreate):
     with get_connection() as c:
