@@ -15,7 +15,7 @@ from interspace.core.qa_models import QARunCreate,QARunResponse
 from interspace.core.qa import run_pytest
 from interspace.audit.models import AuditEventCreate,AuditEventResponse
 from interspace.audit.state import can_transition
-from interspace.retrieval.experiences import rank_experiences
+from interspace.retrieval.experiences import rank_experiences\nfrom interspace.core.precedence import resolve_precedence
 
 app=FastAPI(title="LLM InterSpace Gateway",version="0.5.0")\napp.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 @app.on_event("startup")
@@ -203,6 +203,14 @@ def knowledge(k:KnowledgeCreate):
         c.execute("INSERT INTO knowledge VALUES (?,?,?,?,?,?,?,?,?)",(kid,k.key,json.dumps(k.value),k.scope,k.created_by,k.status,now.isoformat()))
         _audit(c,"knowledge.created",k.created_by,"knowledge",kid,{"scope":k.scope,"status":k.status})
     return KnowledgeResponse(knowledge_id=kid,**k.model_dump(),created_at=now)
+@app.post("/precedence/resolve")
+def precedence_resolve(payload:dict):
+    with get_connection() as c:
+        state=[dict(r) for r in c.execute("SELECT * FROM project_state ORDER BY updated_at DESC").fetchall()]
+        knowledge=[dict(r) for r in c.execute("SELECT * FROM knowledge WHERE status='VERIFIED' ORDER BY created_at DESC").fetchall()]
+        history=[dict(r) for r in c.execute("SELECT * FROM experiences WHERE status IN ('VERIFIED','RECONFIRMED') ORDER BY created_at DESC").fetchall()]
+    return resolve_precedence(state,knowledge,history,payload.get("shared_agent_knowledge",[]),payload.get("foundation_model"))
+
 @app.get("/audit",response_model=list[AuditEventResponse])
 def audit(limit:int=100):
     with get_connection() as c: rows=c.execute("SELECT * FROM audit_log ORDER BY created_at DESC LIMIT ?",(max(1,min(limit,500)),)).fetchall()
