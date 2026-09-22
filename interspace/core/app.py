@@ -1,6 +1,7 @@
 import json,uuid
 from datetime import datetime,timezone
-from fastapi import FastAPI,HTTPException,Query\nfrom fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI,HTTPException,Query
+from fastapi.middleware.cors import CORSMiddleware
 from interspace.agents.models import AgentHeartbeat,AgentRegistration,AgentResponse,utc_now
 from interspace.communication.models import EventCreate,EventResponse
 from interspace.communication.notifications import ContractSubscriptionCreate,ContractSubscriptionResponse,NotificationResponse
@@ -15,9 +16,11 @@ from interspace.core.qa_models import QARunCreate,QARunResponse
 from interspace.core.qa import run_pytest
 from interspace.audit.models import AuditEventCreate,AuditEventResponse
 from interspace.audit.state import can_transition
-from interspace.retrieval.experiences import rank_experiences\nfrom interspace.core.precedence import resolve_precedence
+from interspace.retrieval.experiences import rank_experiences
+from interspace.core.precedence import resolve_precedence
 
-app=FastAPI(title="LLM InterSpace Gateway",version="0.5.0")\napp.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
+app=FastAPI(title="LLM InterSpace Gateway",version="0.5.0")
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 @app.on_event("startup")
 def startup(): initialize_database()
 def _agent(row): return AgentResponse(agent_id=row["agent_id"],name=row["name"],role=row["role"],model=row["model"],capabilities=json.loads(row["capabilities_json"]),status=row["status"],last_heartbeat=row["last_heartbeat"])
@@ -144,7 +147,11 @@ def create_experience(e:ExperienceCreate):
         if not c.execute("SELECT 1 FROM agents WHERE agent_id=?",(e.created_by,)).fetchone(): raise HTTPException(404,"Agent not registered")
         c.execute("INSERT INTO experiences VALUES (?,?,?,?,?,?,?,?,?,?)",(eid,e.problem,e.action,e.result,e.verification,e.created_by,e.status,json.dumps(e.metadata),now.isoformat(),now.isoformat())); _audit(c,"experience.created",e.created_by,"experience",eid,{"status":e.status})
     return ExperienceResponse(experience_id=eid,**e.model_dump(),created_at=now,updated_at=now)
-@app.get("/experiences",response_model=list[ExperienceResponse])\ndef experiences(limit:int=100):\n    with get_connection() as c: rows=c.execute("SELECT * FROM experiences ORDER BY created_at DESC LIMIT ?",(max(1,min(limit,500)),)).fetchall()\n    return [ExperienceResponse(experience_id=r["experience_id"],problem=r["problem"],action=r["action"],result=r["result"],verification=r["verification"],created_by=r["created_by"],status=r["status"],metadata=json.loads(r["metadata_json"]),created_at=datetime.fromisoformat(r["created_at"]),updated_at=datetime.fromisoformat(r["updated_at"])) for r in rows]\n@app.post("/experiences/search")
+@app.get("/experiences",response_model=list[ExperienceResponse])
+def experiences(limit:int=100):
+    with get_connection() as c: rows=c.execute("SELECT * FROM experiences ORDER BY created_at DESC LIMIT ?",(max(1,min(limit,500)),)).fetchall()
+    return [ExperienceResponse(experience_id=r["experience_id"],problem=r["problem"],action=r["action"],result=r["result"],verification=r["verification"],created_by=r["created_by"],status=r["status"],metadata=json.loads(r["metadata_json"]),created_at=datetime.fromisoformat(r["created_at"]),updated_at=datetime.fromisoformat(r["updated_at"])) for r in rows]
+@app.post("/experiences/search")
 def search_experiences(s:ExperienceSearch):
     with get_connection() as c: rows=[dict(r) for r in c.execute("SELECT * FROM experiences WHERE status IN ('VERIFIED','RECONFIRMED') ORDER BY created_at DESC").fetchall()]
     for r in rows: r["metadata"]=json.loads(r.pop("metadata_json")); r["created_at"]=r["created_at"]
