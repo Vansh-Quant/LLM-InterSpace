@@ -41,6 +41,6 @@ def test_invalid_state_transition_rejected():
 def test_qa_run_and_record():
     with TestClient(app) as c:
         reg(c,"qa-agent","qa")
-        r=c.post("/qa/run",json={"requested_by":"qa-agent","timeout_seconds":120})
+        r=c.post("/qa/run",json={"requested_by":"qa-agent","test_path":"tests/test_gateway.py","timeout_seconds":120})
         assert r.status_code==200
         assert r.json()["status"]=="passed"
